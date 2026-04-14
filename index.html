@@ -1,1 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<title>Umoja Fresh Dairy · Business System</title>
+
+<link rel="manifest" href="manifest-umoja.json">
+<meta name="theme-color" content="#1a6b3c">
+
+<style>
+body {
+  margin:0;
+  font-family: Arial, sans-serif;
+  background:#f0f7f2;
+}
+
+.topbar {
+  background:#0a1a0f;
+  color:#fff;
+  padding:12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.topbar img {
+  height:34px;
+  width:34px;
+  border-radius:6px;
+  background:#fff;
+}
+
+.tabs {
+  display:flex;
+  background:#111;
+}
+
+.tabs button {
+  flex:1;
+  padding:10px;
+  border:none;
+  color:#aaa;
+  background:none;
+}
+
+.tabs button.active {
+  color:#6dcc8a;
+  border-bottom:2px solid #6dcc8a;
+}
+
+.panel {
+  display:none;
+  padding:14px;
+}
+
+.panel.active {
+  display:block;
+}
+
+.card {
+  background:#fff;
+  padding:12px;
+  margin-bottom:10px;
+  border-radius:8px;
+}
+
+input, select {
+  width:100%;
+  padding:8px;
+  margin-top:6px;
+}
+
+button {
+  padding:10px;
+  margin-top:8px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.btn-primary {background:#0a1a0f;color:#fff;}
+.btn-green {background:#25D366;color:#fff;}
+.btn-outline {border:1px solid #ccc;background:#fff;}
+</style>
+</head>
+
+<body>
+
+<div class="topbar">
+  <img src="images/logo.png">
+  <div>
+    <b>Umoja Fresh Dairy</b><br>
+    <small>Wholesale • Retail • Tracker</small>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="active" onclick="tab('customers',this)">Customers</button>
+  <button onclick="tab('deliver',this)">Deliver</button>
+  <button onclick="tab('retail',this)">Retail</button>
+  <button onclick="tab('profit',this)">Profit</button>
+  <button onclick="tab('tools',this)">Tools</button>
+</div>
+
+<!-- CUSTOMERS -->
+<div id="customers" class="panel active">
+  <div class="card">
+    <h3>Add Customer</h3>
+    <input id="name" placeholder="Name">
+    <input id="phone" placeholder="Phone">
+    <input id="price" placeholder="Price per litre">
+    <button class="btn-primary" onclick="addCustomer()">Save</button>
+  </div>
+
+  <div id="customerList"></div>
+</div>
+
+<!-- DELIVER -->
+<div id="deliver" class="panel">
+  <div class="card">
+    <h3>Record Delivery</h3>
+    <select id="custSelect"></select>
+    <input id="litres" placeholder="Litres">
+    <button class="btn-primary" onclick="addDelivery()">Save Delivery</button>
+  </div>
+</div>
+
+<!-- RETAIL -->
+<div id="retail" class="panel">
+  <div class="card">
+    <h3>Retail Sales</h3>
+    <input id="retailLitres" placeholder="Litres sold">
+    <input id="retailPrice" placeholder="Price per litre">
+    <button onclick="addRetail()">Save</button>
+  </div>
+</div>
+
+<!-- PROFIT -->
+<div id="profit" class="panel">
+  <div class="card">
+    <h3>Profit Summary</h3>
+    <div id="profitBox"></div>
+  </div>
+</div>
+
+<!-- TOOLS -->
+<div id="tools" class="panel">
+  <div class="card">
+    <h3>Tools</h3>
+
+    <button class="btn-green" onclick="backup()">Backup WhatsApp</button>
+    <button class="btn-outline" onclick="exportCSV()">Export Excel</button>
+    <button class="btn-primary" id="installBtn" style="display:none;">Install App</button>
+
+  </div>
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem('milkData') || '{"customers":[],"deliveries":[],"retail":[]}');
+
+function save(){localStorage.setItem('milkData',JSON.stringify(data));}
+
+function tab(id,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function addCustomer(){
+  data.customers.push({
+    name:name.value,
+    phone:phone.value,
+    price:parseFloat(price.value),
+    balance:0
+  });
+  save();render();
+}
+
+function render(){
+  let list="";
+  let select="";
+  data.customers.forEach((c,i)=>{
+    list+=`
+      <div class="card">
+        <b>${c.name}</b><br>
+        ${c.phone}<br>
+        Balance: ${c.balance}<br>
+        <button onclick="remind(${i})">Remind</button>
+      </div>
+    `;
+    select+=`<option value="${i}">${c.name}</option>`;
+  });
+
+  customerList.innerHTML=list;
+  custSelect.innerHTML=select;
+
+  calcProfit();
+}
+
+function addDelivery(){
+  let i=custSelect.value;
+  let l=parseFloat(litres.value);
+  let c=data.customers[i];
+
+  let amt=l*c.price;
+  c.balance+=amt;
+
+  data.deliveries.push({cust:i,litres:l,amount:amt});
+
+  save();render();
+}
+
+function addRetail(){
+  let l=parseFloat(retailLitres.value);
+  let p=parseFloat(retailPrice.value);
+
+  data.retail.push({litres:l,amount:l*p});
+  save();render();
+}
+
+function calcProfit(){
+  let wholesale=0;
+  let retail=0;
+
+  data.deliveries.forEach(d=>wholesale+=d.amount);
+  data.retail.forEach(r=>retail+=r.amount);
+
+  profitBox.innerHTML=`
+    Wholesale: ${wholesale}<br>
+    Retail: ${retail}<br>
+    Total: ${wholesale+retail}
+  `;
+}
+
+function remind(i){
+  let c=data.customers[i];
+  let msg=`Hello ${c.name}, you owe KES ${c.balance}. Kindly pay.`;
+  window.open("https://wa.me/"+c.phone+"?text="+encodeURIComponent(msg));
+}
+
+function backup(){
+  window.open("https://wa.me/?text="+encodeURIComponent(JSON.stringify(data)));
+}
+
+function exportCSV(){
+  let csv="Name,Phone,Balance\n";
+  data.customers.forEach(c=>{
+    csv+=`${c.name},${c.phone},${c.balance}\n`;
+  });
+
+  let blob=new Blob([csv]);
+  let a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download="umoja.csv";
+  a.click();
+}
+
+render();
+
+/* INSTALL */
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt',(e)=>{
+  e.preventDefault();
+  deferredPrompt=e;
+  installBtn.style.display='block';
+});
+
+installBtn.onclick=()=>{
+  if(deferredPrompt) deferredPrompt.prompt();
+};
+
+/* SW */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+
+</body>
+  </html>
